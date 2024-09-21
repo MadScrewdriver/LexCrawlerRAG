@@ -13,7 +13,8 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Topic :: Utilities",
 ]
-requires = ["pymupdf>=1.24.3"]
+
+requires = ["pymupdf>=1.24.3", "rtree>=1.3.0", "shapely>=2.0.6"]
 
 setuptools.setup(
     name="pymupdf4llm",

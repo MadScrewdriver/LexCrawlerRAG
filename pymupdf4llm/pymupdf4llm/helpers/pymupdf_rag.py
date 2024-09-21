@@ -152,28 +152,48 @@ def poly_area(points):
     return abs(area) / 2
 
 
+from shapely.geometry import box
+from rtree import index
+
 def refine_boxes(boxes):
     """Join any rectangles with a pairwise non-empty overlap."""
+    idx = index.Index()
     new_rects = []
-    # list of all vector graphic rectangles
-    prects = boxes[:]
 
-    while prects:  # the algorithm will empty this list
-        r = +prects[0]  # copy of first rectangle
-        repeat = True  # initialize condition
-        while repeat:
-            repeat = False  # set false as default
-            for i in range(len(prects) - 1, 0, -1):  # from back to front
-                if r.intersects(prects[i]):  # enlarge first rect with this
-                    r |= prects[i]
-                    del prects[i]  # delete this rect
-                    repeat = True  # indicate we must try again
+    # Insert all rectangles into the spatial index (R-tree)
+    for i, rect in enumerate(boxes):
+        # Use rect.x0, rect.y0, rect.x1, rect.y1 to define the bounds
+        idx.insert(i, (rect.x0, rect.y0, rect.x1, rect.y1))
 
-        new_rects.append(r)
-        del prects[0]
+    merged = [False] * len(boxes)
 
-    new_rects = sorted(set(new_rects), key=lambda r: (r.x0, r.y0))
+    for i, rect in enumerate(boxes):
+        if merged[i]:
+            continue
+
+        # Stack to hold rectangles to be merged
+        merge_stack = [rect]
+
+        while merge_stack:
+            current_rect = merge_stack.pop()
+
+            # Find all rectangles that intersect with the current one
+            intersect_indices = list(idx.intersection((current_rect.x0, current_rect.y0, current_rect.x1, current_rect.y1)))
+
+            for j in intersect_indices:
+                if merged[j]:
+                    continue
+                # If they intersect, merge them
+                if current_rect.intersects(boxes[j]):
+                    current_rect = current_rect | boxes[j]  # Union of the two rectangles
+                    merged[j] = True
+                    merge_stack.append(current_rect)
+
+        new_rects.append(current_rect)
+        merged[i] = True
+
     return new_rects
+
 
 
 def is_significant(box, paths):

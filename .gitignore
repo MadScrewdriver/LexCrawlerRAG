@@ -1,2 +1,4 @@
 _build
 build
+/pdf4llm/pdf4llm.egg-info/
+/pymupdf4llm/pymupdf4llm.egg-info/

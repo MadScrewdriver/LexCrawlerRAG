@@ -448,6 +448,7 @@ def to_markdown(
             # ------------------------------------------------------------
             # Pick up tables ABOVE this text block
             # ------------------------------------------------------------
+
             for i, _ in sorted(
                 [
                     j
@@ -506,6 +507,14 @@ def to_markdown(
                 del img_rects[i]
 
             text = " ".join([s["text"] for s in spans])
+
+            # Eliminate text underlining and mark footnote separation
+            if tabs and tabs.footnotes:
+                if abs(tabs.footnotes["y"] - lrect.y1) < 2:
+                    tabs.footnotes = None
+                elif tabs.footnotes["y"] < lrect.y0:
+                    out_string += "\n&&&&&&&&&&&\n"
+                    tabs.footnotes = None
 
             # full line mono-spaced?
             if not IGNORE_CODE:
@@ -857,11 +866,34 @@ def to_markdown(
         the text rectangles.
         """
         for text_rect in text_rects:
-            # output tables above this block of text
-            md_string += output_tables(tabs, text_rect, tab_rects, line_rects, textpage)
-            md_string += output_images(
-                page, textpage, text_rect, vg_clusters, line_rects
-            )
+            # -------------------
+
+            md_string_tables = output_tables(tabs, text_rect, tab_rects, line_rects, textpage)
+            md_string += md_string_tables
+
+            table_row = [t.strip() for t in md_string.rstrip().split("\n") if t.strip()]
+            break_last_table_row = True if table_row and table_row[-1].startswith("|---|") else False
+
+            last_table_row = table_row[-1] if table_row else ""
+            last_table_col_count = last_table_row.count("|")
+
+            if break_last_table_row:
+                table_row.pop()
+
+            md_string = "\n".join(table_row)
+            md_string_images = output_images(page, textpage, text_rect, vg_clusters, line_rects)
+            md_string += "\n"
+
+            if md_string_images and last_table_row.endswith("|"):
+                table_images = [i.strip() for i in md_string_images.split("\n") if i.strip()]
+                md_string += f"\n\n------\n\n|{' '.join(table_images)}{'|' * (last_table_col_count - 1)}\n"
+
+                if break_last_table_row:
+                    md_string += f"{last_table_row}\n"
+
+            else:
+                md_string += md_string_images
+            # -------------------
 
             # output text inside this rectangle
             md_string += write_text(
@@ -879,7 +911,36 @@ def to_markdown(
         md_string = md_string.replace(" ,", ",").replace("-\n", "")
         # write any remaining tables and images
         md_string += output_tables(tabs, None, tab_rects, line_rects, textpage)
-        md_string += output_images(page, textpage, None, vg_clusters, line_rects)
+
+        # -------------------
+
+        md_string_tables = output_tables(tabs, None, tab_rects, line_rects, textpage)
+        md_string += md_string_tables
+
+        table_row = [t.strip() for t in md_string.rstrip().split("\n") if t.strip()]
+        break_last_table_row = True if table_row and table_row[-1].startswith("|---|") else False
+
+        last_table_row = table_row[-1] if table_row else ""
+        last_table_col_count = last_table_row.count("|")
+
+        if break_last_table_row:
+            table_row.pop()
+
+        md_string = "\n".join(table_row)
+        md_string_images = output_images(page, textpage, None, vg_clusters, line_rects)
+        md_string += "\n"
+
+        if md_string_images and last_table_row.endswith("|"):
+            table_images = [i.strip() for i in md_string_images.split("\n") if i.strip()]
+            md_string += f"\n\n-----\n\n|{' '.join(table_images)}{'|' * (last_table_col_count - 1)}\n"
+
+            if break_last_table_row:
+                md_string += f"{last_table_row}\n"
+
+        else:
+            md_string += md_string_images
+        # -------------------
+
         md_string += "\n-----\n\n"
         while md_string.startswith("\n"):
             md_string = md_string[1:]
